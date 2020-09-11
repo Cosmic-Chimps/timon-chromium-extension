@@ -3,6 +3,10 @@
   "name": "Timon Extension",
   "description": "Timon Extension",
   "version": "0.1",
+  "icons": {
+    "32": "icon/icon-32x32.png",
+    "16": "icon/icon-32x32.png"
+  },
   "options_ui": {
     "page": "options.html",
     "chrome_style": false

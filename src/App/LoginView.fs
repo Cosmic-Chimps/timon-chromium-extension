@@ -1,35 +1,35 @@
 module Login
 
 open System
-open Fable.Core
 open Fable.React
 open Fable.React.Props
 open Fable.Import
-open Browser.Dom
 open Elmish
-open Elmish.React
-open Shared
 open Fable.Core.JsInterop
-open Fable.Core.JS
 open Validation
-
-type LoginForm = { email: string; password: string }
+open Models
+open Elmish.Cmd.OfPromise
+open Service
+open Thoth.Fetch
 
 type Model =
     { loginForm: LoginForm
-      validatedLogin: Result<LoginForm, FSharp.Collections.Map<string, string list>> option }
+      validatedLogin: Result<LoginForm, FSharp.Collections.Map<string, string list>> option
+      failureReason: string option }
 
 type Model with
     static member Default =
         { loginForm =
               { email = String.Empty
                 password = String.Empty }
-          validatedLogin = None }
+          validatedLogin = None
+          failureReason = None }
 
 type Message =
     | SetValue of string * string
     | OnLogin
     | LoginValidated
+    | LoginSucceeded of Result<TokenResponse, FetchError>
 
 
 let validateForm (loginForm: LoginForm) =
@@ -48,7 +48,6 @@ let validateForm (loginForm: LoginForm) =
     <| fun t ->
         { email = validEmail t "email" loginForm.email
           password = cannotBeBlank t "password" loginForm.password }
-
 
 let update model msg =
     let validateForced form =
@@ -70,9 +69,16 @@ let update model msg =
         |> validate,
         Cmd.none
     | OnLogin -> model.loginForm |> validateForced, Cmd.ofMsg (LoginValidated)
-    | LoginValidated ->
-
-        model, Cmd.none
+    | LoginValidated -> model, either doLogin (model.loginForm) LoginSucceeded raise
+    | LoginSucceeded result ->
+        match result with
+        | Ok tokenResponse ->
+            printfn "%O" tokenResponse
+            model, Cmd.none
+        | _ ->
+            { model with
+                  failureReason = Some "Verify your email or password" },
+            Cmd.none
     | _ -> model, Cmd.none
 
 let errorAndClass name (result: Result<_, FSharp.Collections.Map<_, _>> option) =
@@ -111,6 +117,15 @@ let view (model: Model) dispatch =
         h1 [ Class "title has-text-grey" ] [
             str "Log in"
         ]
+
+        match model.failureReason with
+        | Some (value) ->
+            div [ Class "is-danger message" ] [
+                div [ Class "message-header" ] [
+                    str value
+                ]
+            ]
+        | None -> ()
 
         inputForm "email" "email" model.validatedLogin dispatch
         inputForm "password" "password" model.validatedLogin dispatch
