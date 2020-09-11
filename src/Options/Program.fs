@@ -36,12 +36,15 @@ let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
             match Int32.TryParse model.Value with
             | (true, v) -> { Count = v }
             | _ -> Counter.Default
+
         let model' =
             { model with
                   Value = String.Empty
                   DefaultCounter = counter' }
 
-        let cmd = Cmd.OfFunc.attempt Counter.save model'.DefaultCounter (string >> Failure)
+        let cmd =
+            Cmd.OfFunc.attempt Counter.save model'.DefaultCounter (string >> Failure)
+
         model', cmd
     | Failure ex ->
         console.error ex
@@ -50,26 +53,26 @@ let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
 let view (model: Model) (dispatch: Msg -> unit): ReactElement =
     let onEnter: DOMAttr =
         function
-        | (ev: Browser.Types.KeyboardEvent) when ev.keyCode = 13.0 -> dispatch SaveValue
+        | (ev: Browser.Types.KeyboardEvent) when ev.code = "Enter" -> dispatch SaveValue
         | _ -> ()
         |> OnKeyDown
 
     let onInput: DOMAttr =
-        OnInput(fun e ->
-            !!e.target?value
-            |> UpdateValue
-            |> dispatch)
+        OnInput(fun e -> !!e.target?value |> UpdateValue |> dispatch)
 
     let onClick (msg: Msg): DOMAttr = OnClick(fun _ -> dispatch msg)
 
-    div []
-        [ str <| sprintf "Default Count: %d" model.DefaultCounter.Count
-          br []
-          input
-              [ onEnter
+    div [] [
+        str
+        <| sprintf "Default Count: %d" model.DefaultCounter.Count
+        br []
+        input [ onEnter
                 onInput
                 valueOrDefault model.Value ]
-          button [ onClick SaveValue ] [ str "Save" ] ]
+        button [ onClick SaveValue ] [
+            str "Save"
+        ]
+    ]
 
 Program.mkProgram (Counter.loadWithDefault >> init) update view
 |> Program.withReactBatched "options"

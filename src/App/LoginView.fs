@@ -70,7 +70,9 @@ let update model msg =
         |> validate,
         Cmd.none
     | OnLogin -> model.loginForm |> validateForced, Cmd.ofMsg (LoginValidated)
-    | LoginValidated -> model, Cmd.none
+    | LoginValidated ->
+
+        model, Cmd.none
     | _ -> model, Cmd.none
 
 let errorAndClass name (result: Result<_, FSharp.Collections.Map<_, _>> option) =
