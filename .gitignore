@@ -9,7 +9,7 @@ obj
 bin
 out
 .ionide
-
+.idea
 # NuGet
 *.nupkg
 
