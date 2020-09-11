@@ -1,19 +1,16 @@
 {
-    "manifest_version": 2,
-
-    "name": "Timon Extension",
-    "description": "Timon Extension",
-    "version": "0.1",
-
-    "options_ui": {
-      "page": "app.html",
-      "chrome_style": false
-    },
-
-    "browser_action": {
-      "default_icon": "icon/icon-32x32.png",
-      "default_popup": "popup.html"
-    },
-
-    "permissions": []
-  }
+  "manifest_version": 2,
+  "name": "Timon Extension",
+  "description": "Timon Extension",
+  "version": "0.1",
+  "options_ui": {
+    "page": "options.html",
+    "chrome_style": false
+  },
+  "browser_action": {
+    "default_icon": "icon/icon-32x32.png",
+    "default_popup": "app.html"
+  },
+  "permissions": [],
+  "content_security_policy": "script-src 'self' 'unsafe-eval'; object-src 'self'"
+}

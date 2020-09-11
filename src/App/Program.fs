@@ -8,43 +8,49 @@ open Browser.Dom
 open Elmish
 open Elmish.React
 open Shared
+open Fable.Core.JsInterop
+open Fable.Core.JS
+open System
 
-type Model = Counter
+type Model =
+    { loginModel: Login.Model
+      email: string }
+    static member Default =
+        { loginModel = Login.Model.Default
+          email = String.Empty }
 
-type Msg =
-    | Increment
-    | Decrement
-    | Failure of string
+type Msg = LoginMsg of Login.Message
 
-let init (counter: Counter): Counter * Cmd<Msg> =
-    let model = counter
-    let cmd = []
-    model, cmd
+let init () =
+    let model = Model.Default
+    model, Cmd.none
 
 let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
     match msg with
-    | Increment ->
-        let model' = { model with Count = model.Count + 1 }
-        model', []
-    | Decrement ->
-        let model' = { model with Count = model.Count - 1 }
-        model', []
-    | Failure ex ->
-        console.error ex
-        model, []
+    | LoginMsg msg ->
+        let m, cmd = Login.update model.loginModel msg
+        let model' = { model with loginModel = m }
+        model', Cmd.map LoginMsg cmd
 
 let view (model: Model) (dispatch: Msg -> unit): ReactElement =
-    model.Count
-    |> string
-    |> JS.BrowserAction.setBadgeText
-    div []
-        [ str <| sprintf "Count : %d" model.Count
-          br []
-          button [
-                OnClick(fun _ -> dispatch Increment)
-          ] [ str "increment" ]
-          button [ OnClick(fun _ -> dispatch Decrement) ] [ str "decrement" ] ]
+    div [ Class "container" ] [
+        div [ Class "column is-8 is-offset-2" ] [
+            Login.view model.loginModel (LoginMsg >> dispatch)
+        ]
+    ]
 
-Program.mkProgram (Counter.loadWithDefault >> init) update view
+Program.mkProgram init update view
 |> Program.withReactBatched "app"
 |> Program.run
+
+// Program.mkProgram (Counter.loadWithDefault >> init) update view
+// |> Program.withReactBatched "options"
+// |> Program.run
+
+// let init (defaultCounter: Counter): Model * Cmd<Msg> =
+//     let model =
+//         { Value = String.Empty
+//           DefaultCounter = defaultCounter }
+
+//     let cmd = []
+//     model, cmd
