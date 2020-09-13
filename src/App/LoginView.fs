@@ -1,4 +1,4 @@
-module Login
+module LoginView
 
 open System
 open Fable.React
@@ -11,6 +11,8 @@ open Models
 open Elmish.Cmd.OfPromise
 open Service
 open Thoth.Fetch
+
+type UserName = string
 
 type Model =
     { loginForm: LoginForm
@@ -30,6 +32,7 @@ type Message =
     | OnLogin
     | LoginValidated
     | LoginSucceeded of Result<TokenResponse, FetchError>
+    | LoginSaved of TokenResponse * UserName
 
 
 let validateForm (loginForm: LoginForm) =
@@ -73,8 +76,8 @@ let update model msg =
     | LoginSucceeded result ->
         match result with
         | Ok tokenResponse ->
-            printfn "%O" tokenResponse
-            model, Cmd.none
+            TokenLocalStorage.save tokenResponse model.loginForm.email
+            model, Cmd.ofMsg (LoginSaved(tokenResponse, model.loginForm.email))
         | _ ->
             { model with
                   failureReason = Some "Verify your email or password" },
@@ -93,14 +96,15 @@ let onInput prop dispatch: DOMAttr =
         |> (fun value -> SetValue(prop, value))
         |> dispatch)
 
-let inputForm intputType name validationResults dispatch =
+let inputForm intputType name validationResults value dispatch =
     let error, _ = errorAndClass name validationResults
     div [ Class "field" ] [
         div [ Class "control" ] [
             input [ onInput name dispatch
                     Class "input is-large"
                     Type intputType
-                    Placeholder name ]
+                    Placeholder name
+                    Value value ]
             match error with
             | Some value ->
                 span [ Class "has-text-danger" ] [
@@ -127,8 +131,8 @@ let view (model: Model) dispatch =
             ]
         | None -> ()
 
-        inputForm "email" "email" model.validatedLogin dispatch
-        inputForm "password" "password" model.validatedLogin dispatch
+        inputForm "email" "email" model.validatedLogin model.loginForm.email dispatch
+        inputForm "password" "password" model.validatedLogin model.loginForm.password dispatch
         button [ onClick OnLogin
                  Class "button is-block is-primary is-large is-fullwidth" ] [
             str "Log in"

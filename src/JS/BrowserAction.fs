@@ -4,6 +4,7 @@ open Fable.Core
 
 type IBrowserAction =
     abstract setBadgeText: string -> unit
+    abstract getTabUrl: unit -> JS.Promise<string>
 
 module BrowserAction =
 
@@ -11,3 +12,4 @@ module BrowserAction =
     let private native: IBrowserAction = jsNative
 
     let setBadgeText = native.setBadgeText
+    let getTabUrl = native.getTabUrl

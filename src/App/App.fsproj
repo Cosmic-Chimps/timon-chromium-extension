@@ -10,6 +10,7 @@
     <Compile Include="Models.fs" />
     <Compile Include="Service.fs" />
     <Compile Include="./LoginView.fs" />
+    <Compile Include="./ChannelsView.fs" />
     <Compile Include="./Program.fs" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />

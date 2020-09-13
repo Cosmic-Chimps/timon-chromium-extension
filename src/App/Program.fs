@@ -11,35 +11,83 @@ open Shared
 open Fable.Core.JsInterop
 open Fable.Core.JS
 open System
+open Models
 
 type Model =
-    { loginModel: Login.Model
-      email: string }
+    { loginModel: LoginView.Model
+      channelsListModel: ChannelsView.Model
+      email: string
+      tokenResponse: TokenResponse
+      isLoggedIn: bool }
     static member Default =
-        { loginModel = Login.Model.Default
-          email = String.Empty }
+        { loginModel = LoginView.Model.Default
+          email = String.Empty
+          tokenResponse = TokenResponse.Default
+          channelsListModel = ChannelsView.Model.Default
+          isLoggedIn = false }
 
-type Msg = LoginMsg of Login.Message
+type Msg =
+    | LoginMsg of LoginView.Message
+    | ChannelsMsg of ChannelsView.Message
+    | Init
 
-let init () =
+let init (tokenResponse, username) =
     let model = Model.Default
-    model, Cmd.none
+
+    let channelModel =
+        { model.channelsListModel with
+              username = username }
+
+    { model with
+          email = username
+          tokenResponse = tokenResponse
+          channelsListModel = channelModel },
+    Cmd.ofMsg Init
 
 let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
     match msg with
+    | Init ->
+        match model.tokenResponse.refreshToken <> String.Empty with
+        | false -> model, Cmd.none
+        | true ->
+            let nextCmd =
+                Cmd.ofMsg ChannelsView.Message.LoadChannels
+
+            { model with isLoggedIn = true }, Cmd.map ChannelsMsg nextCmd
+
+    | ChannelsMsg msg ->
+        let m, cmd =
+            ChannelsView.update model.tokenResponse model.channelsListModel msg
+
+        { model with channelsListModel = m }, Cmd.map ChannelsMsg cmd
+
+    | LoginMsg (LoginView.Message.LoginSaved (tokenResponse, username)) ->
+        let channelModel =
+            { model.channelsListModel with
+                  username = username }
+
+        { model with
+              isLoggedIn = true
+              tokenResponse = tokenResponse
+              email = username
+              channelsListModel = channelModel },
+        Cmd.none
     | LoginMsg msg ->
-        let m, cmd = Login.update model.loginModel msg
+        let m, cmd = LoginView.update model.loginModel msg
         let model' = { model with loginModel = m }
         model', Cmd.map LoginMsg cmd
+
 
 let view (model: Model) (dispatch: Msg -> unit): ReactElement =
     div [ Class "container" ] [
         div [ Class "column is-8 is-offset-2" ] [
-            Login.view model.loginModel (LoginMsg >> dispatch)
+            match model.isLoggedIn with
+            | false -> LoginView.view model.loginModel (LoginMsg >> dispatch)
+            | true -> ChannelsView.view model.channelsListModel (ChannelsMsg >> dispatch)
         ]
     ]
 
-Program.mkProgram init update view
+Program.mkProgram (TokenLocalStorage.loadWithDefault >> init) update view
 |> Program.withReactBatched "app"
 |> Program.run
 
