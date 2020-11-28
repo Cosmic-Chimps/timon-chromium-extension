@@ -2,10 +2,12 @@ module Models
 
 open Thoth.Json
 open System
+open System.Collections.Generic
+open Fable.Core.JS
 
 type LoginForm = { email: string; password: string }
 
-type CreateLinkPayload = { url: string; channelId: Guid }
+type CreateLinkPayload = { url: string }
 
 type Channel =
     { id: Guid
@@ -14,6 +16,33 @@ type Channel =
         Decode.object (fun get ->
             { id = get.Required.Field "id" Decode.guid
               name = get.Required.Field "name" Decode.string })
+
+
+type Club =
+    { id: Guid
+      name: string
+      isPublic: bool }
+    static member Decoder =
+        Decode.object (fun get ->
+            { id = get.Required.Field "id" Decode.guid
+              name = get.Required.Field "name" Decode.string
+              isPublic = get.Required.Field "isPublic" Decode.bool })
+
+    static member Encoder(json: Club) =
+        Encode.object [ "id", Encode.guid json.id
+                        "name", Encode.string json.name
+                        "isPublic", Encode.bool json.isPublic ]
+
+    static member SaveInLocalStorage(club: Club) =
+        Club.Encoder club
+        |> fun jsonValue -> Encode.Auto.toString (0, jsonValue)
+        |> fun json -> ("club", json)
+        |> Browser.WebStorage.localStorage.setItem
+
+    static member GetFromLocalStorage() =
+        Browser.WebStorage.localStorage.getItem "club"
+        |> unbox
+        |> Decode.fromString (Club.Decoder)
 
 type TokenResponse =
     { accessToken: string
@@ -65,6 +94,19 @@ type TokenStorageTo =
                         "username", Encode.string json.username
                         "expirationDate", Encode.datetime json.expirationDate ]
 
+type AccessTokenClaims =
+    { timonUserDisplayName: string
+      email: string }
+
+    static member Default =
+        { timonUserDisplayName = String.Empty
+          email = String.Empty }
+
+    /// Transform a TokenStorageTo from JSON
+    static member Decoder =
+        Decode.object (fun get ->
+            { timonUserDisplayName = get.Required.Field "timonUserDisplayName" Decode.string
+              email = get.Required.Field "email" Decode.string })
 
 module TokenLocalStorage =
     [<LiteralAttribute>]
@@ -74,9 +116,22 @@ module TokenLocalStorage =
         let expiresAt =
             DateTime.UtcNow.Add(TimeSpan.FromSeconds(float (tokenResponse.expiresIn)))
 
+        let jwtDecoded =
+            JS.JwtDecode.decode (tokenResponse.accessToken)
+
+        let payload = JSON.stringify jwtDecoded
+
+        let displayName =
+            let result =
+                Decode.fromString AccessTokenClaims.Decoder payload
+
+            match result with
+            | Ok c -> c.timonUserDisplayName
+            | _ -> username
+
         let tokenStorageTo =
             { token = tokenResponse
-              username = username
+              username = displayName
               expirationDate = expiresAt }
 
         TokenStorageTo.Encoder tokenStorageTo

@@ -5,6 +5,7 @@
   <ItemGroup>
     <Compile Include="./../Shared/Shared.fs" />
     <Compile Include="./../JS/BrowserAction.fs" />
+    <Compile Include="./../JS/JwtDecode.fs" />
     <Compile Include="../Shared/Validation.fs" />
     <Compile Include="Configuration.fs" />
     <Compile Include="Models.fs" />
@@ -12,6 +13,9 @@
     <Compile Include="./LoginView.fs" />
     <Compile Include="./ChannelsView.fs" />
     <Compile Include="./Program.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="jose-jwt" Version="2.6.1" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

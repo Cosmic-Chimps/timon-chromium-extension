@@ -51,8 +51,7 @@ let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
         match model.tokenStorageTo.token.refreshToken = String.Empty with
         | true -> model, Cmd.none
         | false ->
-            let nextCmd =
-                Cmd.ofMsg ChannelsView.Message.LoadChannels
+            let nextCmd = Cmd.ofMsg ChannelsView.Message.LoadClubs
 
             { model with isLoggedIn = true }, Cmd.map ChannelsMsg nextCmd
 
@@ -71,8 +70,7 @@ let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
             { model.channelsListModel with
                   username = tokenStorageTo.username }
 
-        let nextCmd =
-            Cmd.ofMsg ChannelsView.Message.LoadChannels
+        let nextCmd = Cmd.ofMsg ChannelsView.Message.LoadClubs
 
         { model with
               isLoggedIn = true

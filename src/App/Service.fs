@@ -18,16 +18,6 @@ let doLogin (loginForm: LoginForm) =
         return! Fetch.tryPost (url, data, decoder = TokenResponse.Decoder)
     }
 
-
-let getChannels (): JS.Promise<Result<Channel list, FetchError>> =
-    promise {
-        let url =
-            (sprintf "%s/channels" Configuration.config.timonEndPoint)
-
-        return! Fetch.tryGet (url, decoder = (Decode.list Channel.Decoder))
-    }
-
-
 let renewToken refreshToken =
     promise {
         let url =
@@ -62,27 +52,56 @@ let getToken (tokenStorageTo: TokenStorageTo) =
     }
 
 
-let postLinkToChannel (tokenStorageTo: TokenStorageTo, payload: CreateLinkPayload) =
+let authorizationHeader (tokenStorageTo: TokenStorageTo) =
+    promise {
+        let! tokenResponse = getToken tokenStorageTo
+
+        return sprintf "Bearer %s" tokenResponse.token.accessToken
+    }
+
+let postLinkToChannel (tokenStorageTo: TokenStorageTo, clubId: Guid, channelId: Guid, payload: CreateLinkPayload) =
     promise {
         let url =
-            (sprintf "%s/links" Configuration.config.timonEndPoint)
+            (sprintf "%s/clubs/%O/channels/%O/links" Configuration.config.timonEndPoint clubId channelId)
 
         let data =
             Encode.object [ "url", Encode.string payload.url
-                            "channelId", Encode.guid payload.channelId
                             "via", Encode.string "chrome-extension"
                             "tagName", Encode.string "" ]
 
-
-
-        let! tokenResponse = getToken tokenStorageTo
-
-        let authorizationHeader =
-            sprintf "Bearer %s" tokenResponse.token.accessToken
+        let! authorizationHeader = authorizationHeader tokenStorageTo
 
         let! resp = Fetch.tryPost (url, data, headers = [ Fetch.Types.Authorization authorizationHeader ])
 
         return match resp with
                | Ok _ -> true
                | _ -> false
+    }
+
+let getChannels (tokenStorageTo: TokenStorageTo, clubId: Guid): JS.Promise<Result<Channel list, FetchError>> =
+    promise {
+
+        let url =
+            (sprintf "%s/clubs/%O/channels" Configuration.config.timonEndPoint clubId)
+
+        let! authorizationHeader = authorizationHeader tokenStorageTo
+
+        return! Fetch.tryGet
+                    (url,
+                     decoder = (Decode.list Channel.Decoder),
+                     headers = [ Fetch.Types.Authorization authorizationHeader ])
+    }
+
+let getClubs (tokenStorageTo: TokenStorageTo): JS.Promise<Result<Club list, FetchError>> =
+    promise {
+        let url =
+            (sprintf "%s/clubs" Configuration.config.timonEndPoint)
+
+
+        let! authorizationHeader = authorizationHeader tokenStorageTo
+
+        return! Fetch.tryGet
+                    (url,
+                     decoder = (Decode.list Club.Decoder),
+                     headers = [ Fetch.Types.Authorization authorizationHeader ])
     }
