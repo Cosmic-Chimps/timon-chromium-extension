@@ -32,7 +32,7 @@ type Message =
     | OnLogin
     | LoginValidated
     | LoginSucceeded of Result<TokenResponse, FetchError>
-    | LoginSaved of TokenResponse * UserName
+    | LoginSaved of TokenStorageTo
 
 
 let validateForm (loginForm: LoginForm) =
@@ -77,7 +77,8 @@ let update model msg =
         match result with
         | Ok tokenResponse ->
             TokenLocalStorage.save tokenResponse model.loginForm.email
-            model, Cmd.ofMsg (LoginSaved(tokenResponse, model.loginForm.email))
+            let tokenStorageTo = TokenLocalStorage.loadWithDefault ()
+            model, Cmd.ofMsg (LoginSaved tokenStorageTo)
         | _ ->
             { model with
                   failureReason = Some "Verify your email or password" },
@@ -104,7 +105,7 @@ let inputForm intputType name validationResults value dispatch =
                     Class "input is-large"
                     Type intputType
                     Placeholder name
-                    Value value ]
+                    DefaultValue value ]
             match error with
             | Some value ->
                 span [ Class "has-text-danger" ] [
@@ -117,24 +118,28 @@ let inputForm intputType name validationResults value dispatch =
 let view (model: Model) dispatch =
     let onClick msg: DOMAttr = OnClick(fun _ -> dispatch msg)
 
-    div [] [
-        h1 [ Class "title has-text-grey" ] [
-            str "Log in"
-        ]
+    div [ Class "container" ] [
+        div [ Class "column is-8 is-offset-2" ] [
+            div [] [
+                h1 [ Class "title has-text-grey" ] [
+                    str "Log in"
+                ]
 
-        match model.failureReason with
-        | Some (value) ->
-            div [ Class "is-danger message" ] [
-                div [ Class "message-header" ] [
-                    str value
+                match model.failureReason with
+                | Some (value) ->
+                    div [ Class "is-danger message" ] [
+                        div [ Class "message-header" ] [
+                            str value
+                        ]
+                    ]
+                | None -> ()
+
+                inputForm "email" "email" model.validatedLogin model.loginForm.email dispatch
+                inputForm "password" "password" model.validatedLogin model.loginForm.password dispatch
+                button [ onClick OnLogin
+                         Class "button is-block is-primary is-large is-fullwidth" ] [
+                    str "Log in"
                 ]
             ]
-        | None -> ()
-
-        inputForm "email" "email" model.validatedLogin model.loginForm.email dispatch
-        inputForm "password" "password" model.validatedLogin model.loginForm.password dispatch
-        button [ onClick OnLogin
-                 Class "button is-block is-primary is-large is-fullwidth" ] [
-            str "Log in"
         ]
     ]

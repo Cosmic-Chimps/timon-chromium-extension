@@ -25,14 +25,14 @@ type TokenResponse =
           expiresIn = 0
           refreshToken = String.Empty }
 
-    /// Transform a Book from JSON
+    /// Transform a TokenResponse from JSON
     static member Decoder =
         Decode.object (fun get ->
             { accessToken = get.Required.Field "access_token" Decode.string
               expiresIn = get.Required.Field "expires_in" Decode.int
               refreshToken = get.Required.Field "refresh_token" Decode.string })
 
-    /// Transform JSON as Book
+    /// Transform JSON as TokenResponse
     static member Encoder(json: TokenResponse) =
         Encode.object [ "access_token", Encode.string json.accessToken
                         "expires_in", Encode.int json.expiresIn
@@ -42,35 +42,59 @@ let tokenResponseCoder: ExtraCoders =
     Extra.empty
     |> Extra.withCustom TokenResponse.Encoder TokenResponse.Decoder
 
+type TokenStorageTo =
+    { token: TokenResponse
+      username: string
+      expirationDate: DateTime }
+
+    static member Default =
+        { token = TokenResponse.Default
+          username = String.Empty
+          expirationDate = DateTime.MinValue }
+
+    /// Transform a TokenStorageTo from JSON
+    static member Decoder =
+        Decode.object (fun get ->
+            { token = get.Required.Field "token" TokenResponse.Decoder
+              username = get.Required.Field "username" Decode.string
+              expirationDate = get.Required.Field "expirationDate" Decode.datetime })
+
+    /// Transform JSON as TokenStorageTo
+    static member Encoder(json: TokenStorageTo) =
+        Encode.object [ "token", TokenResponse.Encoder json.token
+                        "username", Encode.string json.username
+                        "expirationDate", Encode.datetime json.expirationDate ]
+
 
 module TokenLocalStorage =
     [<LiteralAttribute>]
     let private STORAGE_KEY = "TimonToken"
 
-    let private STORAGE_USERNAME_KEY = "TimonUsername"
-
     let save (tokenResponse: TokenResponse) (username: string): unit =
-        Encode.Auto.toString (0, tokenResponse)
+        let expiresAt =
+            DateTime.UtcNow.Add(TimeSpan.FromSeconds(float (tokenResponse.expiresIn)))
+
+        let tokenStorageTo =
+            { token = tokenResponse
+              username = username
+              expirationDate = expiresAt }
+
+        TokenStorageTo.Encoder tokenStorageTo
+        |> fun jsonValue -> Encode.Auto.toString (0, jsonValue)
         |> fun json -> (STORAGE_KEY, json)
         |> Browser.WebStorage.localStorage.setItem
 
-        Browser.WebStorage.localStorage.setItem (STORAGE_USERNAME_KEY, username)
+
+    let clear () = Browser.WebStorage.localStorage.clear ()
 
     let load () =
-        let token =
-            Browser.WebStorage.localStorage.getItem STORAGE_KEY
-            |> unbox
-            |> Decode.fromString (Decode.Auto.generateDecoder<TokenResponse> ())
-
-        let username =
-            Browser.WebStorage.localStorage.getItem STORAGE_USERNAME_KEY
-            |> unbox
-            |> string
-
-        (token, username)
+        Browser.WebStorage.localStorage.getItem STORAGE_KEY
+        |> unbox
+        |> Decode.fromString (TokenStorageTo.Decoder)
+    // |> Decode.fromString (Decode.Auto.generateDecoder<TokenStorageTo> ())
 
     let loadWithDefault () =
         let result = load ()
         match result with
-        | Ok tokenResponse, username -> (tokenResponse, username)
-        | a, b -> (TokenResponse.Default, String.Empty)
+        | Ok tokenStorageTo -> tokenStorageTo
+        | _ -> TokenStorageTo.Default

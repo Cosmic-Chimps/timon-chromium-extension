@@ -17,12 +17,12 @@ type Model =
     { loginModel: LoginView.Model
       channelsListModel: ChannelsView.Model
       email: string
-      tokenResponse: TokenResponse
+      tokenStorageTo: TokenStorageTo
       isLoggedIn: bool }
     static member Default =
         { loginModel = LoginView.Model.Default
           email = String.Empty
-          tokenResponse = TokenResponse.Default
+          tokenStorageTo = TokenStorageTo.Default
           channelsListModel = ChannelsView.Model.Default
           isLoggedIn = false }
 
@@ -31,47 +31,55 @@ type Msg =
     | ChannelsMsg of ChannelsView.Message
     | Init
 
-let init (tokenResponse, username) =
+let init (tokenStorageTo: TokenStorageTo) =
     let model = Model.Default
 
     let channelModel =
         { model.channelsListModel with
-              username = username }
+              username = tokenStorageTo.username }
 
     { model with
-          email = username
-          tokenResponse = tokenResponse
+          email = tokenStorageTo.username
+          tokenStorageTo = tokenStorageTo
           channelsListModel = channelModel },
+
     Cmd.ofMsg Init
 
 let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
     match msg with
     | Init ->
-        match model.tokenResponse.refreshToken <> String.Empty with
-        | false -> model, Cmd.none
-        | true ->
+        match model.tokenStorageTo.token.refreshToken = String.Empty with
+        | true -> model, Cmd.none
+        | false ->
             let nextCmd =
                 Cmd.ofMsg ChannelsView.Message.LoadChannels
 
             { model with isLoggedIn = true }, Cmd.map ChannelsMsg nextCmd
 
+    | ChannelsMsg (ChannelsView.Message.OnLogout _) ->
+        TokenLocalStorage.clear ()
+        TokenLocalStorage.loadWithDefault () |> init
+
     | ChannelsMsg msg ->
         let m, cmd =
-            ChannelsView.update model.tokenResponse model.channelsListModel msg
+            ChannelsView.update model.tokenStorageTo model.channelsListModel msg
 
         { model with channelsListModel = m }, Cmd.map ChannelsMsg cmd
 
-    | LoginMsg (LoginView.Message.LoginSaved (tokenResponse, username)) ->
+    | LoginMsg (LoginView.Message.LoginSaved tokenStorageTo) ->
         let channelModel =
             { model.channelsListModel with
-                  username = username }
+                  username = tokenStorageTo.username }
+
+        let nextCmd =
+            Cmd.ofMsg ChannelsView.Message.LoadChannels
 
         { model with
               isLoggedIn = true
-              tokenResponse = tokenResponse
-              email = username
+              tokenStorageTo = tokenStorageTo
+              email = tokenStorageTo.username
               channelsListModel = channelModel },
-        Cmd.none
+        Cmd.map ChannelsMsg nextCmd
     | LoginMsg msg ->
         let m, cmd = LoginView.update model.loginModel msg
         let model' = { model with loginModel = m }
@@ -79,13 +87,9 @@ let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
 
 
 let view (model: Model) (dispatch: Msg -> unit): ReactElement =
-    div [ Class "container" ] [
-        div [ Class "column is-8 is-offset-2" ] [
-            match model.isLoggedIn with
-            | false -> LoginView.view model.loginModel (LoginMsg >> dispatch)
-            | true -> ChannelsView.view model.channelsListModel (ChannelsMsg >> dispatch)
-        ]
-    ]
+    match model.isLoggedIn with
+    | false -> LoginView.view model.loginModel (LoginMsg >> dispatch)
+    | true -> ChannelsView.view model.channelsListModel (ChannelsMsg >> dispatch)
 
 Program.mkProgram (TokenLocalStorage.loadWithDefault >> init) update view
 |> Program.withReactBatched "app"

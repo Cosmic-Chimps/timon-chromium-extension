@@ -16,11 +16,13 @@ open Thoth.Fetch
 type Model =
     { channels: Channel list
       username: string
-      addToChannelId: Guid }
+      addToChannelId: Guid
+      showNotification: bool }
     static member Default =
         { channels = List.empty
           username = String.Empty
-          addToChannelId = Guid.Empty }
+          addToChannelId = Guid.Empty
+          showNotification = false }
 
 type Message =
     | LoadChannels
@@ -28,8 +30,10 @@ type Message =
     | AddLinkToChannel of Guid
     | OnUrlRead of string
     | LinkAdded of bool
+    | HideNotification
+    | OnLogout
 
-let update (tokenResponse: TokenResponse) (model: Model) (msg: Message) =
+let update (tokenStorageTo: TokenStorageTo) (model: Model) (msg: Message) =
     match msg with
     | LoadChannels ->
         let nextCmd =
@@ -55,10 +59,12 @@ let update (tokenResponse: TokenResponse) (model: Model) (msg: Message) =
               channelId = model.addToChannelId }
 
         let nextCmd =
-            either postLinkToChannel (tokenResponse, payload) LinkAdded raise
+            either postLinkToChannel (tokenStorageTo, payload) LinkAdded raise
 
         model, nextCmd
-    | LinkAdded _ -> model, Cmd.none
+    | HideNotification -> { model with showNotification = false }, Cmd.none
+    | LinkAdded _ -> { model with showNotification = true }, Cmd.none
+    | OnLogout _ -> model, Cmd.none
 
 
 let channelViews (model: Model) dispatch =
@@ -85,6 +91,17 @@ let channelViews (model: Model) dispatch =
             ])
         |> tbody []
 
+let notificationView model dispatch =
+    match model.showNotification with
+    | false -> div [] []
+    | true ->
+        div [ Class "notification is-info" ] [
+            button [ Class "delete"
+                     OnClick(fun _ -> dispatch HideNotification) ] []
+            str "The url has been saved"
+        ]
+
+
 let view (model: Model) (dispatch: Message -> unit) =
     div [] [
         nav [ Class "navbar is-primary"
@@ -99,22 +116,75 @@ let view (model: Model) (dispatch: Message -> unit) =
                     div [ DangerouslySetInnerHTML { __html = "&nbsp;Timón" } ] []
                 ]
             ]
-            div [ Class "navbar-end" ] [
-                div [ Class "navbar-item" ] [
-                    str model.username
+        ]
+
+        div [ Class "notification is-primary" ] [
+            div [] [ str model.username ]
+            div [] [
+                a [ OnClick(fun _ -> dispatch OnLogout) ] [
+                    span [ Class "icon is-small" ] [
+                        i [ Class "mdi mdi-logout" ] []
+                    ]
+                    span [ DangerouslySetInnerHTML { __html = "&nbsp;Logout" } ] []
                 ]
             ]
         ]
-        div [ Class "card" ] [
-            header [ Class "card-header " ] [
-                p [ Class "card-header-title" ] [
-                    str "Channels"
-                ]
-            ]
-            div [ Class "card-table" ] [
-                div [ Class "content" ] [
-                    table [ Class "table is-fullwidth is-striped" ] [
-                        channelViews model dispatch
+
+        div [ Class "container" ] [
+            div [ Class "column is-8 is-offset-2" ] [
+                notificationView model dispatch
+                div [ Class "card" ] [
+                    header [ Class "card-header" ] [
+                        p [ Class "card-header-title" ] [
+                            div [ Class "dropdown" ] [
+                                div [ Class "dropdown-trigger" ] [
+                                    button [ Class "button"
+                                             AriaHasPopup true
+                                             HTMLAttr.Custom("aria-controls", "dropdown-menu2") ] [
+                                        span [] [ str "Content" ]
+                                        span [ Class "icon is-small" ] [
+                                            i [ Class "fas fa-angle-down"
+                                                HTMLAttr.Custom("aria-hidden", "true") ] []
+                                        ]
+                                    ]
+                                ]
+                                div [ Class "dropdown-menu"
+                                      Id "dropdown-menu2"
+                                      Role "menu" ] [
+                                    div [ Class "dropdown-content" ] [
+                                        div [ Class "dropdown-item" ] [
+                                            p [] [ str "You can insert" ]
+                                        ]
+                                        hr [ Class "dropdown-divider" ]
+                                        div [ Class "dropdown-item" ] [
+                                            p [] [ str "You simply need to use a" ]
+                                        ]
+                                        hr [ Class "dropdown-divider" ]
+                                        a [ Href "#"; Class "dropdown-item" ] [
+                                            str "This is a link"
+                                        ]
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                    div [ Class "card-content" ] [
+                        div [ Class "content" ] [
+                            div [ Class "card" ] [
+                                header [ Class "card-header " ] [
+                                    p [ Class "card-header-title" ] [
+                                        str "Channels"
+                                    ]
+                                ]
+                                div [ Class "card-table" ] [
+                                    div [ Class "content" ] [
+                                        table [ Class "table is-fullwidth is-striped" ] [
+                                            channelViews model dispatch
+                                        ]
+                                    ]
+                                ]
+                            ]
+                        ]
                     ]
                 ]
             ]

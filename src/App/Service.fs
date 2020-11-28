@@ -4,6 +4,7 @@ open Models
 open Thoth.Fetch
 open Thoth.Json
 open Fable.Core
+open System
 
 let doLogin (loginForm: LoginForm) =
     promise {
@@ -27,40 +28,41 @@ let getChannels (): JS.Promise<Result<Channel list, FetchError>> =
     }
 
 
-// let renewToken endpoint refreshTokenRequest =
-//     httpAsync
-//         {
-//             POST (sprintf "%s/refresh-token" endpoint)
-//             body
-//             json (Json.serialize refreshTokenRequest)
-//         }
-//         |> Async.RunSynchronously
-//         |> toText
-//         |> TokenProvider.Parse
+let renewToken refreshToken =
+    promise {
+        let url =
+            (sprintf "%s/refresh-token" Configuration.config.timonEndPoint)
 
-// let getToken (tokenResponse: TokenResponse) endpoint = async {
-//     let expireAt = ctx.HttpContext.User.Claims
-//                     |> Seq.find (fun c ->  c.Type = "TimonExpiredDate" )
-//                     |> fun c -> DateTime.Parse(c.Value)
+        let data =
+            Encode.object [ "refreshToken", refreshToken ]
 
-//     let timonRefreshToken = ctx.HttpContext.User.Claims
-//                             |> Seq.find (fun c ->  c.Type = "TimonRefreshToken" )
-//                             |> fun c -> c.Value
-//                             |> protector.Unprotect
+        let! resp = Fetch.tryPost (url, data, decoder = TokenResponse.Decoder)
 
-//     let timonToken = ctx.HttpContext.User.Claims
-//                     |> Seq.find (fun c ->  c.Type = "TimonToken" )
-//                     |> fun c -> c.Value
+        return match resp with
+               | Ok tokenResponse -> tokenResponse
+               | _ -> TokenResponse.Default
+    }
 
-//     return! match expireAt < DateTime.UtcNow with
-//              | true ->
-//                 renewToken endpoint { refreshToken = timonRefreshToken }
-//                 |>  singInUser ctx protector ctx.HttpContext.User.Identity.Name
-//              | false -> async { return timonToken }
-// }
+let saveNewToken email tokenResponse =
+    TokenLocalStorage.save tokenResponse email
+    TokenLocalStorage.loadWithDefault ()
 
 
-let postLinkToChannel (tokenResponse: TokenResponse, payload: CreateLinkPayload) =
+let getToken (tokenStorageTo: TokenStorageTo) =
+    promise {
+        let expireAt = tokenStorageTo.expirationDate
+
+        return! match expireAt < DateTime.UtcNow with
+                | true ->
+                    promise {
+                        let! tokenResponse = renewToken tokenStorageTo.token.refreshToken
+                        return saveNewToken tokenStorageTo.username tokenResponse
+                    }
+                | false -> promise { return tokenStorageTo }
+    }
+
+
+let postLinkToChannel (tokenStorageTo: TokenStorageTo, payload: CreateLinkPayload) =
     promise {
         let url =
             (sprintf "%s/links" Configuration.config.timonEndPoint)
@@ -71,8 +73,12 @@ let postLinkToChannel (tokenResponse: TokenResponse, payload: CreateLinkPayload)
                             "via", Encode.string "chrome-extension"
                             "tagName", Encode.string "" ]
 
+
+
+        let! tokenResponse = getToken tokenStorageTo
+
         let authorizationHeader =
-            sprintf "Bearer %s" tokenResponse.accessToken
+            sprintf "Bearer %s" tokenResponse.token.accessToken
 
         let! resp = Fetch.tryPost (url, data, headers = [ Fetch.Types.Authorization authorizationHeader ])
 
