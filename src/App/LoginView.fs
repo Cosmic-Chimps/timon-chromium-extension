@@ -22,7 +22,8 @@ type Model =
 type Model with
     static member Default =
         { loginForm =
-              { email = String.Empty
+              { timonUrl = String.Empty
+                email = String.Empty
                 password = String.Empty }
           validatedLogin = None
           failureReason = None }
@@ -49,12 +50,14 @@ let validateForm (loginForm: LoginForm) =
 
     all
     <| fun t ->
-        { email = validEmail t "email" loginForm.email
+        { timonUrl = cannotBeBlank t "timonUrl" loginForm.timonUrl
+          email = validEmail t "email" loginForm.email
           password = cannotBeBlank t "password" loginForm.password }
 
 let update model msg =
     let validateForced form =
         let validated = validateForm form
+
         { model with
               loginForm = form
               validatedLogin = Some validated }
@@ -65,6 +68,11 @@ let update model msg =
         | Some _ -> validateForced form
 
     match msg with
+    | SetValue ("timonUrl", value) ->
+        { model.loginForm with
+              timonUrl = value }
+        |> validate,
+        Cmd.none
     | SetValue ("email", value) -> { model.loginForm with email = value } |> validate, Cmd.none
     | SetValue ("password", value) ->
         { model.loginForm with
@@ -91,20 +99,22 @@ let errorAndClass name (result: Result<_, FSharp.Collections.Map<_, _>> option) 
     | Some _ -> None, "modified valid"
     | _ -> None, ""
 
-let onInput prop dispatch: DOMAttr =
-    OnInput(fun e ->
-        !!e.target?value
-        |> (fun value -> SetValue(prop, value))
-        |> dispatch)
+let onInput prop dispatch : DOMAttr =
+    OnInput
+        (fun e ->
+            !!e.target?value
+            |> (fun value -> SetValue(prop, value))
+            |> dispatch)
 
-let inputForm intputType name validationResults value dispatch =
+let inputForm intputType name placeholder validationResults value dispatch =
     let error, _ = errorAndClass name validationResults
+
     div [ Class "field" ] [
         div [ Class "control" ] [
             input [ onInput name dispatch
                     Class "input is-large"
                     Type intputType
-                    Placeholder name
+                    Placeholder placeholder
                     DefaultValue value ]
             match error with
             | Some value ->
@@ -116,7 +126,7 @@ let inputForm intputType name validationResults value dispatch =
     ]
 
 let view (model: Model) dispatch =
-    let onClick msg: DOMAttr = OnClick(fun _ -> dispatch msg)
+    let onClick msg : DOMAttr = OnClick(fun _ -> dispatch msg)
 
     div [ Class "container" ] [
         div [ Class "column is-8 is-offset-2" ] [
@@ -134,8 +144,9 @@ let view (model: Model) dispatch =
                     ]
                 | None -> ()
 
-                inputForm "email" "email" model.validatedLogin model.loginForm.email dispatch
-                inputForm "password" "password" model.validatedLogin model.loginForm.password dispatch
+                inputForm "text" "timonUrl" "Timon Url" model.validatedLogin model.loginForm.timonUrl dispatch
+                inputForm "email" "email" "Email" model.validatedLogin model.loginForm.email dispatch
+                inputForm "password" "password" "Password" model.validatedLogin model.loginForm.password dispatch
                 button [ onClick OnLogin
                          Class "button is-block is-primary is-large is-fullwidth" ] [
                     str "Log in"

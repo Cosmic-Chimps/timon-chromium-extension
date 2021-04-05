@@ -5,7 +5,10 @@ open System
 open System.Collections.Generic
 open Fable.Core.JS
 
-type LoginForm = { email: string; password: string }
+type LoginForm =
+    { timonUrl: string
+      email: string
+      password: string }
 
 type CreateLinkPayload = { url: string }
 
@@ -13,9 +16,10 @@ type Channel =
     { id: Guid
       name: string }
     static member Decoder =
-        Decode.object (fun get ->
-            { id = get.Required.Field "id" Decode.guid
-              name = get.Required.Field "name" Decode.string })
+        Decode.object
+            (fun get ->
+                { id = get.Required.Field "id" Decode.guid
+                  name = get.Required.Field "name" Decode.string })
 
 
 type Club =
@@ -23,10 +27,11 @@ type Club =
       name: string
       isPublic: bool }
     static member Decoder =
-        Decode.object (fun get ->
-            { id = get.Required.Field "id" Decode.guid
-              name = get.Required.Field "name" Decode.string
-              isPublic = get.Required.Field "isPublic" Decode.bool })
+        Decode.object
+            (fun get ->
+                { id = get.Required.Field "id" Decode.guid
+                  name = get.Required.Field "name" Decode.string
+                  isPublic = get.Required.Field "isPublic" Decode.bool })
 
     static member Encoder(json: Club) =
         Encode.object [ "id", Encode.guid json.id
@@ -56,10 +61,11 @@ type TokenResponse =
 
     /// Transform a TokenResponse from JSON
     static member Decoder =
-        Decode.object (fun get ->
-            { accessToken = get.Required.Field "access_token" Decode.string
-              expiresIn = get.Required.Field "expires_in" Decode.int
-              refreshToken = get.Required.Field "refresh_token" Decode.string })
+        Decode.object
+            (fun get ->
+                { accessToken = get.Required.Field "access_token" Decode.string
+                  expiresIn = get.Required.Field "expires_in" Decode.int
+                  refreshToken = get.Required.Field "refresh_token" Decode.string })
 
     /// Transform JSON as TokenResponse
     static member Encoder(json: TokenResponse) =
@@ -67,7 +73,7 @@ type TokenResponse =
                         "expires_in", Encode.int json.expiresIn
                         "refresh_token", Encode.string json.refreshToken ]
 
-let tokenResponseCoder: ExtraCoders =
+let tokenResponseCoder : ExtraCoders =
     Extra.empty
     |> Extra.withCustom TokenResponse.Encoder TokenResponse.Decoder
 
@@ -83,10 +89,11 @@ type TokenStorageTo =
 
     /// Transform a TokenStorageTo from JSON
     static member Decoder =
-        Decode.object (fun get ->
-            { token = get.Required.Field "token" TokenResponse.Decoder
-              username = get.Required.Field "username" Decode.string
-              expirationDate = get.Required.Field "expirationDate" Decode.datetime })
+        Decode.object
+            (fun get ->
+                { token = get.Required.Field "token" TokenResponse.Decoder
+                  username = get.Required.Field "username" Decode.string
+                  expirationDate = get.Required.Field "expirationDate" Decode.datetime })
 
     /// Transform JSON as TokenStorageTo
     static member Encoder(json: TokenStorageTo) =
@@ -104,15 +111,16 @@ type AccessTokenClaims =
 
     /// Transform a TokenStorageTo from JSON
     static member Decoder =
-        Decode.object (fun get ->
-            { timonUserDisplayName = get.Required.Field "timonUserDisplayName" Decode.string
-              email = get.Required.Field "email" Decode.string })
+        Decode.object
+            (fun get ->
+                { timonUserDisplayName = get.Required.Field "timonUserDisplayName" Decode.string
+                  email = get.Required.Field "email" Decode.string })
 
 module TokenLocalStorage =
     [<LiteralAttribute>]
     let private STORAGE_KEY = "TimonToken"
 
-    let save (tokenResponse: TokenResponse) (username: string): unit =
+    let save (tokenResponse: TokenResponse) (username: string) : unit =
         let expiresAt =
             DateTime.UtcNow.Add(TimeSpan.FromSeconds(float (tokenResponse.expiresIn)))
 
@@ -140,7 +148,8 @@ module TokenLocalStorage =
         |> Browser.WebStorage.localStorage.setItem
 
 
-    let clear () = Browser.WebStorage.localStorage.clear ()
+    let clear () =
+        Browser.WebStorage.localStorage.clear ()
 
     let load () =
         Browser.WebStorage.localStorage.getItem STORAGE_KEY
@@ -150,6 +159,7 @@ module TokenLocalStorage =
 
     let loadWithDefault () =
         let result = load ()
+
         match result with
         | Ok tokenStorageTo -> tokenStorageTo
         | _ -> TokenStorageTo.Default
