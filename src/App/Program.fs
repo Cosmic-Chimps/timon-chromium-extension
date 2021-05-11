@@ -45,7 +45,7 @@ let init (tokenStorageTo: TokenStorageTo) =
 
     Cmd.ofMsg Init
 
-let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
+let update (msg: Msg) (model: Model) : Model * Cmd<Msg> =
     match msg with
     | Init ->
         match model.tokenStorageTo.token.refreshToken = String.Empty with
@@ -61,7 +61,7 @@ let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
 
     | ChannelsMsg msg ->
         let m, cmd =
-            ChannelsView.update model.tokenStorageTo model.channelsListModel msg
+            ChannelsView.update (TokenLocalStorage.loadWithDefault ()) model.channelsListModel msg
 
         { model with channelsListModel = m }, Cmd.map ChannelsMsg cmd
 
@@ -84,7 +84,7 @@ let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
         model', Cmd.map LoginMsg cmd
 
 
-let view (model: Model) (dispatch: Msg -> unit): ReactElement =
+let view (model: Model) (dispatch: Msg -> unit) : ReactElement =
     match model.isLoggedIn with
     | false -> LoginView.view model.loginModel (LoginMsg >> dispatch)
     | true -> ChannelsView.view model.channelsListModel (ChannelsMsg >> dispatch)

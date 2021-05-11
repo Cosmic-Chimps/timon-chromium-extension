@@ -44,9 +44,10 @@ let saveNewToken email tokenResponse =
 let getToken (tokenStorageTo: TokenStorageTo) =
     promise {
         let expireAt = tokenStorageTo.expirationDate
+        let dateNow = DateTime.UtcNow.AddMinutes(10.0)
 
         return!
-            match expireAt < DateTime.UtcNow with
+            match expireAt < dateNow with
             | true ->
                 promise {
                     let! tokenResponse = renewToken tokenStorageTo.token.refreshToken

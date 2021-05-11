@@ -115,7 +115,7 @@ let inputForm intputType name placeholder validationResults value dispatch =
                     Class "input is-large"
                     Type intputType
                     Placeholder placeholder
-                    DefaultValue value ]
+                    Value value ]
             match error with
             | Some value ->
                 span [ Class "has-text-danger" ] [
